@@ -52,7 +52,6 @@ function main:getChannel(channelId)
         local res,body = http.request("GET",string.format("%s/channels/%s",API,channelId),headers)
         local rawData = json.parse(body)
         local channelObj = Channel(self,rawData)
-        p(channelObj)
         return channelObj
     end)()
 end

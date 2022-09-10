@@ -45,4 +45,30 @@ function main:reply(content)
     end)()
 end
 
+function main:edit(content)
+    local cont = nil
+
+    if type(content) == "string" then
+        cont = {
+            content = content
+        }
+    elseif type(content) == "table" then
+        cont = content
+    end
+
+    if cont == nil then
+        error("content must be string or table")
+    end
+
+    coroutine.wrap(function()
+        http.request("POST",string.format("%s/channels/%s/messages/%s",API,self.channelId,self.id),self.headers,json.stringify(cont))
+    end)()
+end
+
+function main:delete()
+    coroutine.wrap(function()
+        http.request("DELETE",string.format("%s/channels/%s/messages/%s",API,self.channelId,self.id),self.headers)
+    end)()
+end
+
 return main
