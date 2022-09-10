@@ -16,12 +16,14 @@ local API = "https://discord.com/api/v9/"
 
 local Message = require("./message.lua")
 local Channel = require("./channel.lua")
+local Interaction = require("./interaction.lua")
 
 local main = class:extend()
 
 local events = {
     ["MESSAGE_CREATE"] = "messageCreate",
-    ["READY"] = "ready"
+    ["READY"] = "ready",
+    ["INTERACTION_CREATE"] = "interactionCreate"
 }
 
 local function log(text)
@@ -84,6 +86,10 @@ function main:login()
                         
                         if event == "messageCreate" then
                             table.insert(args,Message(self,pl.d))
+                        end
+
+                        if event == "interactionCreate" then
+                            table.insert(args,Interaction(self,pl.d))
                         end
     
                         if #args > 0 then
