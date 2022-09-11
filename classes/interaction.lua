@@ -19,7 +19,11 @@ function main:new(client,data)
     self.id = self.rawData.id
     self.guildId = self.rawData.guild_id
     self.channelId = self.rawData.channel_id
+    self.applicationId = self.rawData.application_id
     self.token = self.rawData.token
+    if self.rawData.data ~= nil then
+        self.data = self.rawData.data
+    end
 end
 
 function main:reply(content)
@@ -68,7 +72,7 @@ function main:createFollowup(content)
     }
 
     coroutine.wrap(function()
-        http.request("POST",string.format("%s/interactions/%s/%s",API,self.id,self.token),self.headers,json.stringify(res))
+        http.request("POST",string.format("%s/webhooks/%s/%s",API,self.applicationId,self.token),self.headers,json.stringify(res))
     end)()
 end
 

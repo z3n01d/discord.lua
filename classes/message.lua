@@ -2,8 +2,10 @@ local http = require("coro-http")
 
 local json = require("json")
 
+local timer = require("timer")
+
 local class = require("./object.lua")
-local Channel = require("./channel.lua")
+local User = require("./user.lua")
 local main = class:extend()
 
 local API = "https://discord.com/api/v9/"
@@ -18,6 +20,7 @@ function main:new(client,data)
     self.id = self.rawData.id
     self.channelId = self.rawData.channel_id
     self.content = self.rawData.content
+    self.author = User(self.client,self.rawData.author)
 end
 
 function main:reply(content)
@@ -39,10 +42,20 @@ function main:reply(content)
         message_id = self.id,
         fail_if_not_exists = false
     }
-
+    local _,body = nil,nil
     coroutine.wrap(function()
-        http.request("POST",string.format("%s/channels/%s/messages",API,self.channelId),self.headers,json.stringify(cont))
+        local _,body = http.request("POST",string.format("%s/channels/%s/messages",API,self.channelId),self.headers,json.stringify(cont))
+        return json.parse(body)
     end)()
+
+    while not body do
+        timer.sleep(1)
+    end
+
+    local data = json.parse(body)
+    local msg = main(self.client,data)
+
+    return msg
 end
 
 function main:edit(content)
@@ -61,7 +74,7 @@ function main:edit(content)
     end
 
     coroutine.wrap(function()
-        http.request("POST",string.format("%s/channels/%s/messages/%s",API,self.channelId,self.id),self.headers,json.stringify(cont))
+        local res,body = http.request("PATCH",string.format("%s/channels/%s/messages/%s",API,self.channelId,self.id),self.headers,json.stringify(cont))
     end)()
 end
 

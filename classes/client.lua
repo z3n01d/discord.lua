@@ -1,15 +1,13 @@
 -- Modules
 
 local class = require("./object.lua")
-local ws = require("coro-websocket")
 local http = require("coro-http")
 local timer = require("timer")
 local json = require("json")
+local webSocket = require("./webSocket.lua")
 
 -- Constants
 
-local GATEWAY_HOST = "gateway.discord.gg"
-local GATEWAY_PATH = "/?v=9&encoding=json"
 local API = "https://discord.com/api/v9/"
 
 -- Objects
@@ -17,6 +15,9 @@ local API = "https://discord.com/api/v9/"
 local Message = require("./message.lua")
 local Channel = require("./channel.lua")
 local Interaction = require("./interaction.lua")
+local User = require("./user.lua")
+
+local colors = require("../ansicolors.lua")
 
 local main = class:extend()
 
@@ -27,7 +28,7 @@ local events = {
 }
 
 local function log(text)
-    print(string.format("[DISCORD.LUA] %s",text))
+    print(colors("%{green}[DISCORD.LUA]%{reset} " .. text))
 end
 
 function main:new(token)
@@ -58,93 +59,146 @@ function main:getChannel(channelId)
     end)()
 end
 
-function main:login()
-    coroutine.wrap(function()
-        local res,read,write = nil,nil,nil
+function main:registerGuildCommand(guildId,data)
+    local url = string.format("%s/applications/%s/guilds/%s/commands",API,self.application.id,guildId)
+    local headers = {
+        {"Content-Type", "application/json"},
+        {"Authorization", string.format("Bot %s",self.token)}
+    }
+    coroutine.wrap(function ()
+        local res,body = http.request("POST",url,headers,json.stringify(data))
+    end)()
+end
 
-        local sucess,err = pcall(function()
-            res,read,write = ws.connect{
-                host = GATEWAY_HOST,
-                path = GATEWAY_PATH,
-                tls = true,
-                port = 443
-            }
+function main:bulkEditGuildCommands(guildId,data)
+    local url = string.format("%s/applications/%s/guilds/%s/commands",API,self.application.id,guildId)
+    local headers = {
+        {"Content-Type", "application/json"},
+        {"Authorization", string.format("Bot %s",self.token)}
+    }
+    coroutine.wrap(function ()
+        local res,body = http.request("PUT",url,headers,json.stringify(data))
+    end)()
+end
+
+function main:registerCommand(data)
+    local url = string.format("%s/applications/%s/commands",API,self.application.id)
+    local headers = {
+        {"Content-Type", "application/json"},
+        {"Authorization", string.format("Bot %s",self.token)}
+    }
+    coroutine.wrap(function ()
+        local res,body = http.request("POST",url,headers,json.stringify(data))
+    end)()
+end
+
+function main:bulkEditCommands(data)
+    local url = string.format("%s/applications/%s/commands",API,self.application.id)
+    local headers = {
+        {"Content-Type", "application/json"},
+        {"Authorization", string.format("Bot %s",self.token)}
+    }
+    coroutine.wrap(function ()
+        local res,body = http.request("PUT",url,headers,json.stringify(data))
+    end)()
+end
+
+function main:getCommands()
+    local url = string.format("%s/applications/%s/commands",API,self.application.id)
+    local headers = {
+        {"Content-Type", "application/json"},
+        {"Authorization", string.format("Bot %s",self.token)}
+    }
+    return coroutine.wrap(function ()
+        local res,body = http.request("GET",url,headers)
+        return json.parse(body)
+    end)()
+end
+
+function main:getGuildCommands(guildId)
+    local url = string.format("%s/applications/%s/guilds/%s/commands",API,self.application.id,guildId)
+    local headers = {
+        {"Content-Type", "application/json"},
+        {"Authorization", string.format("Bot %s",self.token)}
+    }
+    return coroutine.wrap(function()
+        local res,body = http.request("GET",url,headers)
+        return json.parse(body)
+    end)()
+end
+
+function main:login()
+    coroutine.wrap(function ()
+        local socket = webSocket()
+        socket:on("DISPATCH",function(pl)
+            local event = events[pl.t] or pl.t
+        
+            local args = {}
+                            
+            if event == "messageCreate" then
+                table.insert(args,Message(self,pl.d))
+            end
+
+            if event == "interactionCreate" then
+                table.insert(args,Interaction(self,pl.d))
+            end
+
+            if event == "ready" then
+                p(pl.d)
+                p(json.parse(pl.d["_trace"][1]))
+                self.application = pl.d.application
+                self.user = User(self,pl.d)
+            end
+        
+            if #args > 0 then
+                self:emit(event,table.unpack(args))
+            else
+                self:emit(event)
+            end
         end)
 
-        if not sucess then return print(err) end
-    
-        coroutine.wrap(function()
-            for e in read do
-                local pl = json.parse(e.payload)
+        socket:on("HEARTBEAT",function()
+            log("Got heartbeat")
+        end)
 
-                if pl ~= nil then
-                    if pl.op == 0 then
-
-                        local event = events[pl.t] or pl.t
-    
-                        local args = {}
-                        
-                        if event == "messageCreate" then
-                            table.insert(args,Message(self,pl.d))
-                        end
-
-                        if event == "interactionCreate" then
-                            table.insert(args,Interaction(self,pl.d))
-                        end
-    
-                        if #args > 0 then
-                            self:emit(event,table.unpack(args))
-                        else
-                            self:emit(event)
-                        end
-                    end
-
-                    if pl.op == 1 then
-                        log("Got HEARTBEAT")
-                    end
-    
-                    if pl.op == 10 then
-                        log("Got HELLO")
-    
-                        local heartbeat_pl = {
-                            op = 1,
-                            d = nil
-                        }
-                        local heartbeat_interval = pl.d.heartbeat_interval 
-    
-                        timer.setInterval(heartbeat_interval,function()
-                            coroutine.wrap(function()
-                                write{
-                                    opcode = 1,
-                                    payload = json.stringify(heartbeat_pl)
-                                }
-                            end)()
-                        end)
-    
-                        local identify_pl = {
-                            op = 2,
-                            d = {
-                                token = self.token,
-                                intents = 513,
-                                properties = {
-                                    os = "linux",
-                                    browser = "discord.lua",
-                                    device = "discord.lua"
-                                }
-                            }
-                        }
-    
-                        coroutine.wrap(function()
-                            write{
-                                opcode = 2,
-                                payload = json.stringify(identify_pl)
-                            }
-                        end)()
-    
-                    end
-                end
-            end
-        end)()
+        socket:on("HELLO",function(pl)
+            log("Got HELLO")
+        
+            local heartbeat_pl = {
+                op = 1,
+                d = nil
+            }
+            local heartbeat_interval = pl.d.heartbeat_interval 
+        
+            timer.setInterval(heartbeat_interval,function()
+                coroutine.wrap(function()
+                    socket.send{
+                        opcode = 1,
+                        payload = json.stringify(heartbeat_pl)
+                    }
+                end)()
+            end)
+        
+            local identify_pl = {
+                op = 2,
+                d = {
+                    token = self.token,
+                    intents = 513,
+                    properties = {
+                        os = "linux",
+                        browser = "discord.lua",
+                        device = "discord.lua"
+                    }
+                }
+            }
+        
+            coroutine.wrap(function()
+                socket.send{
+                    opcode = 2,
+                    payload = json.stringify(identify_pl)
+                }
+            end)()
+        end)
     end)()
 end
 
