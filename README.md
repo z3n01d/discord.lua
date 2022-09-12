@@ -22,7 +22,7 @@ Use Luvit's built in package manager (coming soon)
 
 ## First command
 
-```
+```lua
 local discord = require("discord.lua")
 local client = discord.Client("bots_token") --Get it from: https://discord.com/developers/applications/
 
