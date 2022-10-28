@@ -3,6 +3,12 @@ An object oriented Discord API wrapper written in Luvit runtime enviroment.
 
 # Installation
 ## 1st method (recommended)
+Use lit package manager built-in with Luvit : 
+```
+lit install RealJace/discord.lua
+```
+
+## 2nd method
 Use git clone to clone this repo in your deps folder
 ```
 git clone https://github.com/RealJace/discord.lua.git deps/discord.lua
@@ -13,8 +19,6 @@ lit install creationix/coro-http
 lit install creationix/coro-websocket
 lit install luvit/secure-socket
 ```
-## 2nd method
-Use Luvit's built in package manager (coming soon)
 
 # Examples
 You can find some examples in examples folder in this repo.
