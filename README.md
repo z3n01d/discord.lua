@@ -1,3 +1,5 @@
+<a href="https://imgur.com/lwtW436"><img src="https://i.imgur.com/lwtW436.png" title="source: imgur.com" width="300" height="300" /></a>
+
 # discord.lua
 An object oriented Discord API wrapper written in Luvit runtime enviroment.
 
