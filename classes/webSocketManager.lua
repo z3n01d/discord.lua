@@ -103,7 +103,7 @@ function main:new(client)
 
             local gatewayBot = self.client:getGatewayBot()
             local shards = gatewayBot.shards
-            --[[
+            
             if shards >= 1 and not _G.SHARDING then
                 log("Sharding")
                 shards = shards - 1
@@ -118,7 +118,6 @@ function main:new(client)
                 end
                 _G.SHARDING = true
             end
-            ]]--
 
             fs.writeFileSync("gateway.json",json.stringify(cache))
         end)

@@ -6,13 +6,14 @@ function main:new()
 end
 
 function main:emit(event,...)
-    for ev,func in pairs(self.listeners) do
-        print(ev)
-        print(func)
-        if ev == event then
-            func(...)
+    local args = ...
+    coroutine.wrap(function ()
+        for ev,func in pairs(self.listeners) do
+            if ev == event then
+                func(args)
+            end
         end
-    end
+    end)()
 end
 
 function main:on(event,func)

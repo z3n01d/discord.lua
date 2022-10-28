@@ -25,30 +25,32 @@ function main:new()
 
     main.super.new(self)
 
-    local res,read,write = nil,nil,nil
+    coroutine.wrap(function ()
+        local res,read,write = nil,nil,nil
 
-    local sucess,err = pcall(function()
-        res,read,write = ws.connect{
-            host = GATEWAY_HOST,
-            path = GATEWAY_PATH,
-            tls = true,
-            port = 443
-        }
-    end)
+        local sucess,err = pcall(function()
+            res,read,write = ws.connect{
+                host = GATEWAY_HOST,
+                path = GATEWAY_PATH,
+                tls = true,
+                port = 443
+            }
+        end)
 
-    if not sucess then return print(err) end
+        if not sucess then return print(err) end
 
-    self.send = write
-    self.get = read
-    
-    coroutine.wrap(function()
+        self.send = write
+        self.get = read
+        
         for e in self.get do
             local pl = json.parse(e.payload)
 
-            if pl ~= nil then
+            if pl then
                 self:emit(OP_CODES[tostring(pl.op)],pl)
             end
         end
+
+        print("[DISCORD.LUA] Disconnected")
     end)()
 end
 
