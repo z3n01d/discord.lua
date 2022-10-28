@@ -1,3 +1,5 @@
+[![Discord Server](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/5Vk3mP4HPM)
+
 <a href="https://imgur.com/lwtW436"><img src="https://i.imgur.com/lwtW436.png" title="source: imgur.com" width="300" height="300" /></a>
 
 # discord.lua
