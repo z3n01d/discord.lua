@@ -13,7 +13,7 @@ lit install creationix/coro-http
 lit install creationix/coro-websocket
 lit install luvit/secure-socket
 ```
-## 2st method
+## 2nd method
 Use Luvit's built in package manager (coming soon)
 
 # Examples
