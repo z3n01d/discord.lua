@@ -1,10 +1,9 @@
 -- Modules
 
-local class = require("./object.lua")
+local class = require("./emitter.lua")
 local http = require("coro-http")
 local timer = require("timer")
 local json = require("json")
-local webSocket = require("./webSocket.lua")
 
 -- Constants
 
@@ -16,37 +15,25 @@ local Message = require("./message.lua")
 local Channel = require("./channel.lua")
 local Interaction = require("./interaction.lua")
 local User = require("./user.lua")
+local WebSocketManager = require("./webSocketManager.lua")
 
 local colors = require("../ansicolors.lua")
 
 local main = class:extend()
-
-local events = {
-    ["MESSAGE_CREATE"] = "messageCreate",
-    ["READY"] = "ready",
-    ["INTERACTION_CREATE"] = "interactionCreate"
-}
 
 local function log(text)
     print(colors("%{green}[DISCORD.LUA]%{reset} " .. text))
 end
 
 function main:new(token)
+    main.super.new(self)
     self.token = token
-    self._listeners = {}
-end
-
-function main:on(event,fun)
-    self._listeners[event] = fun
-end
-
-function main:emit(event,...)
-    if self._listeners[event] then
-        self._listeners[event](...)
-    end
 end
 
 function main:getChannel(channelId)
+
+    local channelObj = nil
+
     coroutine.wrap(function()
         local headers = {
             {"Content-Type", "application/json"},
@@ -54,9 +41,14 @@ function main:getChannel(channelId)
         }
         local res,body = http.request("GET",string.format("%s/channels/%s",API,channelId),headers)
         local rawData = json.parse(body)
-        local channelObj = Channel(self,rawData)
-        return channelObj
+        channelObj = Channel(self,rawData)
     end)()
+
+    while not channelObj do
+        timer.sleep(1)
+    end
+
+    return channelObj
 end
 
 function main:registerGuildCommand(guildId,data)
@@ -109,10 +101,63 @@ function main:getCommands()
         {"Content-Type", "application/json"},
         {"Authorization", string.format("Bot %s",self.token)}
     }
-    return coroutine.wrap(function ()
+
+    local commands = nil
+
+    coroutine.wrap(function ()
         local res,body = http.request("GET",url,headers)
-        return json.parse(body)
+        commands = json.parse(body)
     end)()
+
+    while not commands do
+        timer.sleep(1)
+    end
+
+    return commands
+end
+
+function main:getCurrentUser()
+    local headers = {
+        {"Content-Type", "application/json"},
+        {"Authorization", string.format("Bot %s",self.token)}
+    }
+    local url = string.format("%s/users/@me",API)
+
+    local user = nil
+
+    coroutine.wrap(function()
+        local res,body = http.request("GET",url,headers)
+        local data = json.parse(body)
+        user = User(self,data)
+    end)()
+
+    while not user do
+        timer.sleep(1)
+    end
+
+    return user
+end
+
+function main:getGatewayBot()
+    local headers = {
+        {"Content-Type", "application/json"},
+        {"Authorization", string.format("Bot %s",self.token)}
+    }
+    local url = string.format("%s/gateway/bot",API)
+
+    local user = nil
+
+    coroutine.wrap(function()
+        local res,body = http.request("GET",url,headers)
+        local data = json.parse(body)
+        user = data
+    end)()
+
+    while not user do
+        timer.sleep(1)
+    end
+
+    return user
 end
 
 function main:getGuildCommands(guildId)
@@ -128,78 +173,7 @@ function main:getGuildCommands(guildId)
 end
 
 function main:login()
-    coroutine.wrap(function ()
-        local socket = webSocket()
-        socket:on("DISPATCH",function(pl)
-            local event = events[pl.t] or pl.t
-        
-            local args = {}
-                            
-            if event == "messageCreate" then
-                table.insert(args,Message(self,pl.d))
-            end
-
-            if event == "interactionCreate" then
-                table.insert(args,Interaction(self,pl.d))
-            end
-
-            if event == "ready" then
-                p(pl.d)
-                p(json.parse(pl.d["_trace"][1]))
-                self.application = pl.d.application
-                self.user = User(self,pl.d)
-            end
-        
-            if #args > 0 then
-                self:emit(event,table.unpack(args))
-            else
-                self:emit(event)
-            end
-        end)
-
-        socket:on("HEARTBEAT",function()
-            log("Got heartbeat")
-        end)
-
-        socket:on("HELLO",function(pl)
-            log("Got HELLO")
-        
-            local heartbeat_pl = {
-                op = 1,
-                d = nil
-            }
-            local heartbeat_interval = pl.d.heartbeat_interval 
-        
-            timer.setInterval(heartbeat_interval,function()
-                coroutine.wrap(function()
-                    socket.send{
-                        opcode = 1,
-                        payload = json.stringify(heartbeat_pl)
-                    }
-                end)()
-            end)
-        
-            local identify_pl = {
-                op = 2,
-                d = {
-                    token = self.token,
-                    intents = 513,
-                    properties = {
-                        os = "linux",
-                        browser = "discord.lua",
-                        device = "discord.lua"
-                    }
-                }
-            }
-        
-            coroutine.wrap(function()
-                socket.send{
-                    opcode = 2,
-                    payload = json.stringify(identify_pl)
-                }
-            end)()
-        end)
-    end)()
+    WebSocketManager(self)
 end
 
 return main
